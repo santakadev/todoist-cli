@@ -1,0 +1,118 @@
+#!/bin/env bash
+
+function usage_todoist {
+    echo ""
+    echo "Todoist API"
+    echo ""
+    echo "Usage: $0 [resource]"
+    echo ""
+    echo "Resources:"
+    echo "    tasks         task resource"
+    echo "    projects      project resource"
+}
+
+function usage_tasks {
+    echo ""
+    echo "Usage: $0 tasks [action]"
+    echo ""
+    echo "Actions:"
+    echo "    list          Get all active tasks"
+    echo "    delete        Delete a task"
+}
+
+function usage_tasks_list {
+    echo ""
+    echo "Usage: $0 tasks list"
+    echo ""
+    echo "Options:"
+    echo "    --project-id       Filter tasks by project id"
+}
+
+function usage_tasks_delete {
+    echo ""
+    echo "Usage: $0 tasks delete [task_id]"
+    echo ""
+    echo "Arguments:"
+    echo "    task_id       The task id"
+}
+
+function usage_projects {
+    echo ""
+    echo "Usage: $0 projects [action]"
+    echo ""
+    echo "Actions:"
+    echo "    list          Get all projects"
+}
+
+if [[ -z "$TODOIST_TOKEN" ]]; then
+    echo "To use todoist cli set the environment variable TODOIST_TOKEN with your API Token"
+    exit 1;
+fi
+
+if [ $# -lt 1 ]; then
+  usage_todoist
+  exit 1
+fi
+
+if [ "$1" == "tasks" ]; then
+    if [ "$2" == "list" ]; then
+        project_id=""
+
+        if [[ "$3" == "--help" ]]; then
+            usage_tasks_list
+            exit 0
+        fi
+
+        if [[ "$3" == "--project="* ]]; then
+            project_id="${3:10}"
+        fi
+
+        url="https://api.todoist.com/rest/v2/tasks"
+
+        if [[ -n "$project_id" ]]; then
+            url="$url?project_id=$project_id"
+        fi
+
+        curl -sf -X GET "$url" -H "Authorization: Bearer $TODOIST_TOKEN"
+        exit 0
+    fi
+
+    if [ "$2" == "delete" ]; then
+        if [ -z "$3" ]; then
+            usage_tasks_delete
+            exit 1
+        fi
+
+        read -p "Are you sure you want to delete task $3? [y/N] " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]
+        then
+            # TODO: error handling: 404, etc.
+            curl -sf -X DELETE https://api.todoist.com/rest/v2/$3 -H "Authorization: Bearer $TODOIST_TOKEN"
+            if [ $? -ne 0 ]; then
+                exit 1
+            fi
+        fi
+
+        exit 0
+    fi
+
+    echo "Invalid argument: $2"
+    usage_tasks
+    exit 1
+fi
+
+if [ "$1" == "projects" ]; then
+    if [ "$2" == "list" ]; then
+        curl -sf -X GET https://api.todoist.com/rest/v2/projects -H "Authorization: Bearer $TODOIST_TOKEN"
+        exit 0
+    fi
+
+    echo "Invalid argument: $2"
+    usage_projects
+    exit 1
+fi
+
+echo "Invalid argument: $1"
+usage_todoist
+exit 1
